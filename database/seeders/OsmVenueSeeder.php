@@ -42,10 +42,15 @@ class OsmVenueSeeder extends Seeder
         $now = now();
         $imported = 0;
 
+        // SQLite は1文あたりのプレースホルダ数に上限がある（古いビルドは999）。
+        // 1行13列なので、余裕を見て 900 / 13 = 69 行ずつに区切る。
+        $columns = 13;
+        $chunkSize = max(1, intdiv(900, $columns));
+
         // キーは短縮してある:
         //   t=種別(node/way) i=OSMのID n=名前 f=施設種別 a=都道府県
         //   ad=住所 p=電話 w=サイト h=営業時間 lat/lng=座標
-        foreach (array_chunk($rows, 500) as $chunk) {
+        foreach (array_chunk($rows, $chunkSize) as $chunk) {
             $records = [];
 
             foreach ($chunk as $row) {
