@@ -66,7 +66,12 @@
         @if ($isWatching)
           <button type="submit" class="btn btn-outline-secondary">🔕 通知をやめる</button>
         @else
+          {{-- LINEの認証情報が未設定のうちは、押すとLINE側でエラーになるので出さない --}}
+          @if (config('services.line.login_channel_id'))
           <button type="submit" class="btn btn-line">🔔 空きありの報告が投稿されたらLINEで通知</button>
+          @else
+            <button type="button" class="btn btn-secondary" disabled>🔔 空きありの報告が投稿されたらLINEで通知（準備中）</button>
+          @endif
         @endif
       </form>
 
@@ -75,7 +80,12 @@
         @if ($hasRequestedDocument)
           <button type="submit" class="btn btn-outline-secondary" disabled>📮 見学・入園相談済みです</button>
         @else
+          {{-- LINEの認証情報が未設定のうちは、押すとLINE側でエラーになるので出さない --}}
+          @if (config('services.line.login_channel_id'))
           <button type="submit" class="btn btn-line">📮 LINEで見学・入園相談する</button>
+          @else
+            <button type="button" class="btn btn-secondary" disabled>📮 LINEで見学・入園相談する（準備中）</button>
+          @endif
         @endif
       </form>
 
