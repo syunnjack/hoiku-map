@@ -1,4 +1,4 @@
 User-agent: *
 Disallow:
 
-Sitemap: https://hoiku-map.example.com/sitemap.xml
+Sitemap: https://hoiku-map.jp/sitemap.xml
