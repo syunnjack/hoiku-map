@@ -62,6 +62,18 @@
 
   @yield('content')
 
+  {{-- 掲載施設は OpenStreetMap から取り込んでいる。ODbL 1.0 は出典表示を求めている。 --}}
+  <footer class="border-top mt-5 py-4">
+    <div class="container small text-muted">
+      <p class="mb-1">
+        掲載している施設情報の一部は
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+        の提供データ（&copy; OpenStreetMap contributors, ODbL 1.0）を利用しています。
+      </p>
+      <p class="mb-0">最新の受け入れ状況・空き状況は各施設・自治体の公式情報をご確認ください。</p>
+    </div>
+  </footer>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   @yield('scripts')
 </body>
