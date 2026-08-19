@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [VenueController::class, 'index'])->name('venues.index');
 Route::get('/create', [VenueController::class, 'create'])->name('venues.create');
+Route::get('/area/{areaSlug}', [VenueController::class, 'area'])
+    ->whereAlpha('areaSlug')
+    ->name('venues.area');
+Route::get('/nearby', [VenueController::class, 'nearby'])->name('venues.nearby');
 Route::post('/venues', [VenueController::class, 'store'])->name('venues.store')->middleware('throttle:5,1');
 Route::get('/venues/{venue}', [VenueController::class, 'show'])->name('venues.show');
 Route::post('/venues/{venue}/reviews', [ReviewController::class, 'store'])->name('venues.reviews.store')->middleware('throttle:10,1');

@@ -4,22 +4,125 @@ namespace App\Http\Controllers;
 
 use App\Models\Venue;
 use App\Support\ContentModeration;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class VenueController extends Controller
 {
+    /** 1ページに載せる園の数。全件を1ページに出すとHTMLが数十MBになる。 */
+    private const PER_PAGE = 60;
+
     public function index(Request $request)
     {
-        $query = Venue::query()->with(['vacancyReports' => fn ($q) => $q->latest()->limit(1)]);
-
+        // 以前は全件（3万件超）を1ページに描いていて、トップページのHTMLが
+        // 38MBあった。一覧はページ送りにし、地図もそのページの分だけ出す。
         if ($request->filled('area')) {
-            $query->where('area', $request->input('area'));
+            $slug = Venue::slugForArea((string) $request->input('area'));
+
+            if ($slug !== null) {
+                return redirect()->route('venues.area', ['areaSlug' => $slug], 301);
+            }
         }
 
-        $venues = $query->latest()->get();
-        $areas = Venue::query()->whereNotNull('area')->distinct()->pluck('area');
+        $venues = Venue::query()
+            ->with(['vacancyReports' => fn ($q) => $q->latest()->limit(1)])
+            ->latest()
+            ->paginate(self::PER_PAGE);
 
-        return view('venues.index', compact('venues', 'areas'));
+        return view('venues.index', [
+            'venues' => $venues,
+            'areaCounts' => $this->areaCounts(),
+            'area' => null,
+            'areaSlug' => null,
+            'total' => Venue::count(),
+        ]);
+    }
+
+    public function area(string $areaSlug)
+    {
+        $area = Venue::areaForSlug($areaSlug);
+
+        if ($area === null) {
+            throw new NotFoundHttpException;
+        }
+
+        $venues = Venue::query()
+            ->where('area', $area)
+            ->with(['vacancyReports' => fn ($q) => $q->latest()->limit(1)])
+            ->orderBy('name')
+            ->paginate(self::PER_PAGE);
+
+        if ($venues->total() === 0) {
+            throw new NotFoundHttpException;
+        }
+
+        return view('venues.index', [
+            'venues' => $venues,
+            'areaCounts' => $this->areaCounts(),
+            'area' => $area,
+            'areaSlug' => $areaSlug,
+            'total' => $venues->total(),
+        ]);
+    }
+
+    /** 現在地から近い園を返す。地図と一覧は全件を持たないので、必要なときだけ問い合わせる。 */
+    public function nearby(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'lat' => ['required', 'numeric', 'between:-90,90'],
+            'lng' => ['required', 'numeric', 'between:-180,180'],
+        ]);
+
+        $lat = (float) $validated['lat'];
+        $lng = (float) $validated['lng'];
+        $latDelta = 0.35;                                     // おおよそ40km
+        $lngDelta = 0.35 / max(cos(deg2rad($lat)), 0.01);
+
+        $venues = Venue::query()
+            ->whereBetween('lat', [$lat - $latDelta, $lat + $latDelta])
+            ->whereBetween('lng', [$lng - $lngDelta, $lng + $lngDelta])
+            ->limit(400)
+            ->get(['id', 'name', 'area', 'facility_type', 'lat', 'lng'])
+            ->map(function (Venue $venue) use ($lat, $lng) {
+                $venue->setAttribute('distance_km', round($venue->distanceKmFrom($lat, $lng), 1));
+
+                return $venue;
+            })
+            ->sortBy('distance_km')
+            ->take(30)
+            ->values();
+
+        return response()->json([
+            'venues' => $venues->map(fn (Venue $venue) => [
+                'id' => $venue->id,
+                'name' => $venue->name,
+                'area' => $venue->area,
+                'facilityType' => $venue->facility_type,
+                'lat' => (float) $venue->lat,
+                'lng' => (float) $venue->lng,
+                'distanceKm' => $venue->getAttribute('distance_km'),
+                'url' => route('venues.show', $venue),
+            ]),
+        ]);
+    }
+
+    /** 都道府県ごとの掲載件数（多い順）。 */
+    private function areaCounts()
+    {
+        return Venue::query()
+            ->selectRaw('area, COUNT(*) as total')
+            ->whereNotNull('area')
+            ->groupBy('area')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn ($row) => [
+                'area' => $row->area,
+                'slug' => Venue::slugForArea($row->area),
+                'total' => (int) $row->total,
+            ])
+            ->filter(fn (array $row) => $row['slug'] !== null)
+            ->values();
     }
 
     public function create()
@@ -90,7 +193,15 @@ class VenueController extends Controller
     public function sitemap()
     {
         $venues = Venue::select('id', 'updated_at')->get();
-        $xml = view('sitemap', compact('venues'))->render();
+        $areaSlugs = Venue::query()
+            ->whereNotNull('area')
+            ->distinct()
+            ->pluck('area')
+            ->map(fn (string $area) => Venue::slugForArea($area))
+            ->filter()
+            ->values();
+
+        $xml = view('sitemap', compact('venues', 'areaSlugs'))->render();
 
         return response($xml, 200)->header('Content-Type', 'application/xml');
     }
