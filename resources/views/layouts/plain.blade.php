@@ -12,13 +12,19 @@
 
   <title>@yield('title', config('app.name') . ' | 空きが出たらLINEで通知が届く保育園・幼稚園マップ')</title>
   <meta name="description" content="@yield('description', '全国の認可保育園・幼稚園を地図から探せる投稿型マップです。現在地から近い園をすぐ見つけられ、空き状況の口コミや写真付き口コミをリアルタイムで確認できます。空きが出たらLINEで通知が届きます。')">
-  <link rel="canonical" href="{{ url()->current() }}">
+  @php
+      // url()->current() はクエリを落とすため、2ページ目以降が1ページ目を
+      // 正規URLとして申告してしまう。内容が変わる page だけを残す。
+      $canonicalQuery = array_filter(request()->only(['page']), fn ($value) => $value !== null && $value !== '' && $value !== '1');
+      $canonicalUrl = url()->current() . ($canonicalQuery ? '?' . http_build_query($canonicalQuery) : '');
+  @endphp
+  <link rel="canonical" href="{{ $canonicalUrl }}">
 
   <meta property="og:site_name" content="{{ config('app.name') }}">
   <meta property="og:type" content="website">
   <meta property="og:title" content="@yield('title', config('app.name') . ' | 空きが出たらLINEで通知が届く保育園・幼稚園マップ')">
   <meta property="og:description" content="@yield('description', '全国の認可保育園・幼稚園を地図から探せる投稿型マップです。現在地から近い園をすぐ見つけられ、空き状況の口コミや写真付き口コミをリアルタイムで確認できます。空きが出たらLINEで通知が届きます。')">
-  <meta property="og:url" content="{{ url()->current() }}">
+  <meta property="og:url" content="{{ $canonicalUrl }}">
   <meta property="og:locale" content="ja_JP">
 
   <meta name="twitter:card" content="summary">
